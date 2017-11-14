@@ -1,7 +1,5 @@
-<!DOCTYPE html>
-<html>
-<head>
-   <meta charset="UTF-8">
+<html data-dpr="1" style="font-size: 126.533px;"><head>
+    <meta charset="UTF-8">
     <meta http-equiv="Cache-Control" content="no-transform">
     <meta http-equiv="Cache-Control" content="no-siteapp">
     <meta name="applicable-device" content="mobile">
@@ -19,260 +17,713 @@
     <meta property="og:image" content="http://dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png">
     <!-- 360智能摘要-->
     <meta property="og:release_date" content="2017-11-14T11:14:22+08:00">
-</head>
-<script>
-//需要引用别的js的时候，就加上如Env.require("cookie.js")，或Env.require("/common/cookie.js")，是用相对路径还是绝对路径就看喜好了。
-//Env.require可用在页面模板中，也可用在js文件中，但一定要保证执行时env.js被显式引入。
-//多次Env.require同一个js（不管用相对还是绝对），只有第一次会加载，所以不会重复。
-
-//程序最后发行的版本，用于作为缓存键的前缀，快速更新缓存
-var envLastVer = '2014_11_17_17_03';
-
-//用于存放通道名称及通信对象的类，这样可以通过不同通道名称来区分不同的通信对象  
-function HttpRequestObject() {
-    this.chunnel = null;
-    this.instance = null;
+<link href="https://img3.cache.netease.com/f2e/wap/touch_article_2016/ssr_trunk/dist/styles/run.a201c7e.css" rel="stylesheet"><script src="//hm.baidu.com/hm.js?b2d0b085a122275dd543c6d39d92bc62"></script><script src="https://zz.bdstatic.com/linksubmit/push.js"></script><style type="text/css">.share_mask {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  display: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  max-width: 1080px;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 10012;
+  top: 0;
 }
-
-//用于获取的脚本或css文件保存对象
-function HttpGetObject() {
-    this.url = null;        //要下载的文件路径
-    this.cache_key = null;  //缓存键
-    this.chunnel = null;    //通道名
-    this.type = null;       //类型，js或css
-    this.is_fill = false;   //内容是否被填充
-    this.is_exec = false;   //内容是否已被执行，防止分几大块载入后重复执行
+.share_mask .h5share_panel {
+  height: 3rem;
+  width: 100%;
+  background-color: #e6e6e6;
+  border-bottom: solid 1px #dcdcdc;
+  font-size: 0;
+  margin: 0;
+  padding: .75rem 0 0 0;
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+  position: absolute;
+  bottom: 0.96rem;
 }
-
-//通信处理类，可以静态引用其中的方法  
-var Request = new function () {
-
-    //通信类的缓存  
-    this.httpRequestCache = new Array();
-
-    //创建新的通信对象 
-    this.createInstance = function () {
-        var instance = null;
-        if (window.XMLHttpRequest) {
-            //mozilla  
-            instance = new XMLHttpRequest();
-            //有些版本的Mozilla浏览器处理服务器返回的未包含XML mime-type头部信息的内容时会出错。
-            //因此，要确保返回的内容包含text/xml信息  
-            if (instance.overrideMimeType) {
-                instance.overrideMimeType = "text/xml";
-            }
-        }
-        else if (window.ActiveXObject) {
-            //IE  
-            var MSXML = ['MSXML2.XMLHTTP.5.0', 'Microsoft.XMLHTTP', 'MSXML2.XMLHTTP.4.0', 'MSXML2.XMLHTTP.3.0', 'MSXML2.XMLHTTP'];
-            for (var i = 0; i < MSXML.length; i++) {
-                try {
-                    instance = new ActiveXObject(MSXML[i]);
-                    break;
-                }
-                catch (e) {
-                }
-            }
-        }
-        return instance;
-    }
-
-    /**  
-    * 获取一个通信对象  
-    * 若没指定通道名称，则默认通道名为"default"  
-    * 若缓存中不存在需要的通信类，则创建一个，同时放入通信类缓存中  
-    * @param _chunnel：通道名称，若不存在此参数，则默认为"default"  
-    * @return 一个通信对象，其存放于通信类缓存中  
-    */
-    this.getInstance = function (_chunnel) {
-        var instance = null;
-        var object = null;
-        if (_chunnel == undefined)//没指定通道名称  
-        {
-            _chunnel = "default";
-        }
-        var getOne = false;
-        for (var i = 0; i < this.httpRequestCache; i++) {
-            object = HttpRequestObject(this.httpRequestCache[i]);
-            if (object.chunnel == _chunnel) {
-                if (object.instance.readyState == 0 || object.instance.readyState == 4) {
-                    instance = object.instance;
-                }
-                getOne = true;
-                break;
-            }
-        }
-        if (!getOne) //对象不在缓存中，则创建  
-        {
-            object = new HttpRequestObject();
-            object.chunnel = _chunnel;
-            object.instance = this.createInstance();
-            this.httpRequestCache.push(object);
-            instance = object.instance;
-        }
-        return instance;
-    }
-
-    /**  
-    * 客户端向服务端发送请求  
-    * @param _url:请求目的  
-    * @param _data:要发送的数据  
-    * @param _processRequest:用于处理返回结果的函数，其定义可以在别的地方，需要有一个参数，即要处理的通信对象  
-    * @param _chunnel:通道名称，默认为"default"  
-    * @param _asynchronous:是否异步处理，默认为true,即异步处理
-    * @param _paraObj:相关的参数对象 
-    */
-    this.send = function (_url, _data, _processRequest, _chunnel, _asynchronous, _paraObj) {
-        if (_url.length == 0 || _url.indexOf("?") == 0) {
-            alert("由于目的为空，请求失败，请检查！");
-            return;
-        }
-        if (_chunnel == undefined || _chunnel == "") {
-            _chunnel = "default";
-        }
-        if (_asynchronous == undefined) {
-            _asynchronous = true;
-        }
-        var instance = this.getInstance(_chunnel);
-        if (instance == null) {
-            alert("浏览器不支持ajax，请检查！")
-            return;
-        }
-        if (_asynchronous == true && typeof (_processRequest) == "function") {
-            instance.onreadystatechange = function () {
-                if (instance.readyState == 4) // 判断对象状态  
-                {
-                    if (instance.status == 200) // 信息已经成功返回，开始处理信息  
-                    {
-                        _processRequest(instance, _paraObj);
-                    }
-                    else {
-                        alert("您所请求的页面有异常，请检查！");
-                    }
-                }
-            }
-        }
-        //_url加一个时刻改变的参数，防止由于被浏览器缓存后同样的请求不向服务器发送请求  
-        if (_url.indexOf("?") != -1) {
-            _url += "&requestTime=" + (new Date()).getTime();
-        }
-        else {
-            _url += "?requestTime=" + (new Date()).getTime();
-        }
-        if (_data.length == 0) {
-            instance.open("GET", _url, _asynchronous);
-            instance.send(null);
-        }
-        else {
-            instance.open("POST", _url, _asynchronous);
-            instance.setRequestHeader("Content-Length", _data.length);
-            instance.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            instance.send(_data);
-        }
-        if (_asynchronous == false && typeof (_processRequest) == "function") {
-            _processRequest(instance, _paraObj);
-        }
-    }
+.share_mask .h5share_panel .item {
+  height: .98rem;
+  line-height: .98rem;
+  width: .98rem;
+  -webkit-border-radius: .50rem;
+          border-radius: .50rem;
+  border: 1px solid #eee;
+  background-color: #fff;
+  display: inline-block;
+  text-align: center;
+  margin: .25rem 0 .25rem .41rem;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
-
-var Env = new function () {
-    this.needLoadObject = new Array();
-
-    //获取env.js文件所在路径
-    this.envPath = null;
-    this.getPath = function () {
-        this.envPath = document.location.pathname;
-        this.envPath = this.envPath.substring(0, this.envPath.lastIndexOf("/") + 1);
-        var _scripts = document.getElementsByTagName("script");
-        var _envPath = null;
-        var _scriptSrc = null;
-        for (var i = 0; i < _scripts.length; i++) {
-            _scriptSrc = _scripts[i].getAttribute("src");
-            if (_scriptSrc && _scriptSrc.indexOf("env.js") != -1) {
-                break;
-            }
-        }
-        if (_scriptSrc != null) {
-            if (_scriptSrc.charAt(0) == '/') {
-                this.envPath = _scriptSrc.substr(0, _scriptSrc.length - 6);
-            }
-            else {
-                this.envPath = this.envPath + _scriptSrc.substr(0, _scriptSrc.length - 6);
-            }
-        }
-    }
-    this.getPath();
-
-    //获取文件后缀名
-    this.getFileExt = function (fileUrl) {
-        var d = /\.[^\.]+$/.exec(fileUrl);
-        return d.toString().toLowerCase();
-    }
-
-    //依次放入要载入的文件
-    this.pushNeedLoad = function (url) {
-        var _absUrl = null;
-        if (url.charAt(0) == '/')
-            _absUrl = url;
-        else
-            _absUrl = this.envPath + url;
-
-        var object = new HttpGetObject();
-        object.url = _absUrl;
-        object.cache_key = envLastVer + _absUrl;    //利用版本号+绝对路径生成缓存键
-        object.chunnel = 'ch' + (this.needLoadObject.length + 1);
-        object.type = this.getFileExt(_absUrl);
-
-        //尝试从缓存获取
-        var cacheContent = localStorage.getItem(object.cache_key);
-        if (cacheContent) { object.is_fill = true; }
-
-        this.needLoadObject.push(object);
-        return this;
-    }
-
-    //依次装载要处理的文件
-    this.batchLoad = function () {
-        for (var i = 0; i < this.needLoadObject.length; i++) {
-            var item = this.needLoadObject[i];
-            var processGet = function (_instance, _paraObj) {
-                localStorage.setItem(_paraObj.cache_key, _instance.responseText);    //缓存文件
-                _paraObj.is_fill = true;
-            }
-            if (item.is_fill == false) {
-                Request.send(item.url, "", processGet, item.chunnel, false, item);  //采用同步方式载入
-            }
-        }
-        return this;
-    }
-
-    //依次执行要处理的文件
-    this.batchExec = function () {
-        var runCss = function (_css) { document.write('<style type="text/css">' + _css + '</style>'); }
-        var runJs = function (_js) {
-            if (window.execScript)
-                window.execScript(_js);
-            else
-                window.eval(_js);
-        }
-        //依次执行，由于js为单线程执行，每执行一个js都会阻塞其它，所以可以保证顺序执行
-        for (var i = 0; i < this.needLoadObject.length; i++) {
-            var item = this.needLoadObject[i];
-            if (item.is_exec == false) {
-                if (item.type == '.js') {
-                    runJs(localStorage.getItem(item.cache_key));
-                    item.is_exec = true;  //标记已执行，下次不会再执行
-                }
-                else if (item.type == '.css') {
-                    runCss(localStorage.getItem(item.cache_key));
-                    item.is_exec = true;  //标记已执行，下次不会再执行
-                }
-            }
-        }
-    }
+.share_mask .h5share_panel .item i {
+  vertical-align: middle;
+  display: inline-block;
+  font-size: .5rem;
 }
+.share_mask .h5share_panel .qzone i {
+  color: #4c9aea;
+}
+.share_mask .h5share_panel .wb i {
+  color: #ff9900;
+}
+.share_mask .h5share_panel .yx i {
+  color: #04b280;
+}
+.share_mask .h5share_panel .wx i {
+  color: #00aa18;
+}
+.share_mask .h5share_panel .wxzone i {
+  color: #0ca726;
+}
+.share_mask .h5share_panel .more-share i {
+  color: #404040;
+}
+.share_mask .share_shutdown {
+  width: 100%;
+  height: 0.96rem;
+  background-color: #ffffff;
+  position: absolute;
+  bottom: 0;
+  text-align: center;
+  padding-top: .28rem;
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+}
+.share_mask .share_shutdown span {
+  font-size: .32rem;
+  color: #333333;
+}
+.share_mask .nowxshare span:nth-child(1) {
+  margin-left: 1.5rem;
+}
+.share_mask .nowxshare .item {
+  margin-left: .75rem;
+}
+.resize .h5share_panel {
+  margin-top: 1.6rem;
+}
+.extra_list {
+  background-color: #f6f6f6;
+  margin-bottom: .2rem;
+}
+.in-weixin {
+  position: relative;
+}
+.in-weixin .h5share_panel {
+  display: none;
+}
+.in-weixin .weixin_share_show {
+  display: block;
+  width: 75%;
+  height: 221px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: url(http://img0.ph.126.net/HqZme6jId3CAUruaBFHFAA==/6630676339561880826.png) no-repeat;
+  background-size: contain;
+}
+.in-QQ {
+  height: auto;
+  position: relative;
+}
+.in-QQ .h5share_panel {
+  display: none;
+}
+.in-QQ .QQ_share_show {
+  display: block;
+  width: 100%;
+  height: 500px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: url(http://img3.cache.netease.com/f2e/wap/common/images/QQsharemask.png) no-repeat;
+  background-size: contain;
+}
+</style></head>
+<body class="all home">
+    <script type="text/javascript">
+        try {
+            var channel;
+            var reg = /https?:\/\/(?:.*\.)?3g\.163\.com(?:\:\d+)?\/([a-zA-Z0-9]+)\/article\/([A-Z0-9]{16})\.html/;
+            var matches = location.href.match(reg)
+            if (matches) {
+                channel = matches[1]
+            }
+            document.body.classList.add(channel);
+            if (channel != "idol") {
+                document.body.classList.add("home");
+            }
+        } catch (error) {
+            console.warn(error);
+        }
+    </script>
+    <script>"use strict";var Dpr=1,uAgent=window.navigator.userAgent;var isIOS=uAgent.match(/iphone/i);var isYIXIN=uAgent.match(/yixin/i);var is2345=uAgent.match(/Mb2345/i);var ishaosou=uAgent.match(/mso_app/i);var isSogou=uAgent.match(/sogoumobilebrowser/gi);var isLiebao=uAgent.match(/liebaofast/i);var isGnbr=uAgent.match(/GNBR/i);var $fixed=document.getElementById("fixed");function resizeRoot(){var e=screen.width>0?window.innerWidth>=screen.width||window.innerWidth==0?screen.width:window.innerWidth:window.innerWidth,i,n;var t=screen.height>0?window.innerHeight>=screen.height||window.innerHeight==0?screen.height:window.innerHeight:window.innerHeight;if(window.devicePixelRatio){i=window.devicePixelRatio}else{i=isIOS?e>818?3:e>480?2:1:1}if(isIOS){e=screen.width;t=screen.height}if(e>t){e=t}n=e>1080?144:e/7.5;n=n>32?n:32;window.screenWidth_=e;if(isYIXIN||is2345||ishaosou||isSogou||isLiebao||isGnbr){setTimeout(function(){e=screen.width>0?window.innerWidth>=screen.width||window.innerWidth==0?screen.width:window.innerWidth:window.innerWidth;t=screen.height>0?window.innerHeight>=screen.height||window.innerHeight==0?screen.height:window.innerHeight:window.innerHeight;n=e>1080?144:e/7.5;n=n>32?n:32;document.getElementsByTagName("html")[0].style.fontSize=n+"px";if($fixed){$fixed.style.display="none"}},500)}else{document.getElementsByTagName("html")[0].style.fontSize=n+"px";if($fixed){$fixed.style.display="none"}}}resizeRoot();var reviseViewPort=function(e,i){var n=e||200,t=0,r=i||5;var o=setInterval(function(){var e=screen.width>0?window.innerWidth>=screen.width?screen.width:window.innerWidth:window.innerWidth,i;if(e<window.screenWidth_){window.screenWidth_=e;i=e>1080?144:e/7.5;i=i>32?i:32;document.getElementsByTagName("html")[0].style.fontSize=i+"px";clearInterval(o)}else{t++}if(t>=r){clearInterval(o)}},n)};reviseViewPort(200);
 </script>
-<body>
+    
+<div class="share_mask js-share-mask">
+    <div class="h5share_panel nowxshare">
+        <span class="item qzone" data-type="qq" data-uc="Qzone" data-ios="kQZone">
+            <i class="iconfont"></i>
+        </span>
 
-</body>
-</html>
+        <span class="item wb" data-type="wb" data-uc="SinaWeibo" data-ios="kSinaWeibo">
+            <i class="iconfont"></i>
+        </span>
+
+        <span class="item wx" data-type="wx" style="display: none;">
+            <i class="iconfont"></i>
+        </span>
+
+        <span class="item wxzone" data-type="wxzone" style="display: none;">
+            <i class="iconfont"></i>
+        </span>
+        
+        <span class="item yx" data-type="yx">
+            <i class="iconfont"></i>
+        </span>
+    </div>
+    <div class="share_shutdown">
+        <span>取消</span>
+    </div>
+</div>
+    <header><div class="topbar">
+                <a class="back_home" href="http://3g.163.com/touch/">网易</a>
+                <div class="channel_logo">
+                    <a class="a_logo js-addlogo" href="http://3g.163.com/touch/all">推荐频道</a>
+                </div>
+                <span class="sharelogo js-share"></span>
+                <a class="reply_count js-replylink" href="https://3g.163.com/touch/comment.html?docid=D36SMTF40001875P">
+                    <span class="wrapper">
+                        <span class="js-replycount">53297</span>跟贴
+                    </span>
+                </a>
+            </div></header>
+    <!-- 通栏ad1 顶部通栏-->
+    <div class="a_adtemp a_topad js-topad" style="visibility: visible;"><section class="m_papa papa-item clearfix iframe_fk_koukou">
+    <div class="m_papa_iframe_wrap">
+         <iframe src="//3g.163.com/wap/special/gonghe_atricle_dt/" frameborder="0" allowtransparency="true" scrolling="no"></iframe>
+    </div>
+</section><span class="iframe_papa_flag iframe_fk_koukou">广告</span></div>
+    <!-- 有态度 顶部广告 -->
+    <a class="altitude altitude_topbanner js-altop" href="https://3g.163.com/wap/special/attitude_2017/?from=wapdocframeup">
+    </a>
+    <main>
+        <!--文章内容-->
+        <article id="article-D36SMTF40001875P">
+            <div class="head">
+                <h1 class="title">铁总追责！沪昆高铁个别隧道存在偷工减料等问题</h1>
+                <div class="info">
+                    <span class="time js-time">2017-11-14 11:14</span>
+                    <span class="source js-source">澎湃新闻</span>
+                </div>
+            </div>
+            <div class="content">
+                <div class="page js-page on">
+                    <div class="photo">
+                  <a href="//dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png">
+                      <img alt="2016年9月21日，高速铁路检测车在沪昆高铁贵州西段贵安新区境内的运行。视觉中国 资料" data-src="//dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png" src="//dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png?imageView&amp;thumbnail=750x0&amp;quality=85&amp;type=webp&amp;interlace=1">
+                      <span>2016年9月21日，高速铁路检测车在沪昆高铁贵州西段贵安新区境内的运行。视觉中国 资料</span>
+                  </a>
+              </div><p>11月13日晚，中国铁路总公司内部人士向澎湃新闻证实了网友发布的一份通报。该《中国铁路总公司关于沪昆高铁贵州段质量问题处理情况的通报（铁总建设函[2017]839号》（以下简称《通报》）称，通车不到一年的沪昆高铁贵州段个别隧道存在偷工减料与施工质量问题。</p><p>通报并对上述施工单位、监理单位、设计单位、第三方检测单位、建设单位提出了处理意见。</p><div class="photo">
+                  <a href="//dingyue.nosdn.127.net/O2ecqW2NfwTXiHxFA5EMEzUeULJz9x4Nd0n=D4PCD=YNp1510629122217transferflag.png">
+                      <img alt="" data-src="//dingyue.nosdn.127.net/O2ecqW2NfwTXiHxFA5EMEzUeULJz9x4Nd0n=D4PCD=YNp1510629122217transferflag.png" src="//dingyue.nosdn.127.net/O2ecqW2NfwTXiHxFA5EMEzUeULJz9x4Nd0n=D4PCD=YNp1510629122217transferflag.png?imageView&amp;thumbnail=750x0&amp;quality=85&amp;type=webp&amp;interlace=1">
+                      <span></span>
+                  </a>
+              </div><p>13日上午，微博名为“贵州热门头条”的网友发布微博所附红头文件的图片显示，2017年6月底至7月初，沪昆高铁贵州段连续发生多起危及行车安全，干扰运输秩序，影响运输效率和效益的质量问题，总公司组成专项检查组，对沪昆高铁贵州段部分隧道质量问题进行了调查。经查，发现个别隧道存在偷工减料、内业资料弄虚作假等严重质量问题。</p><p><b>存在问题</b></p><p><b>施工偷工减料、验收把关不严</b></p><p>《通报》指出了施工单位、监理单位、设计单位、第三方检测单位、建设单位存在的问题。</p><p>其中，施工单位中铁二十局存在偷工减料、内业资料弄虚作假、违法分包等问题；中铁二十三局存在未按设计要求完成泄水洞全部工程、现场管理混乱、内业资料弄虚作假、违法分包等问题；中铁十七局存在泄水洞施工现场组织不力、进度缓慢等问题；中铁二十二局存在施工缝质量缺陷未整治到位等问题。</p><p>监理单位北京铁研监理公司存在监控不到位、隐蔽过程检查验收不认真、问题整改不闭合等问题；甘肃铁科监理公司存在现场监控及验收把关失职、内业资料随意签认等问题。</p><p>设计单位中铁二院存在地质勘察工作不足、变更设计不到位、图纸提供严重滞后、变更设计技术交底不规范、施工中现场配合不到位等问题。</p></div><div class="page js-page"><p>第三方检测单位山西三江工程检测有限公司存在检测结果与事实严重不符等问题。</p><p>建设单位沪昆客专贵州公司存在设计和现场管理失控、泄水洞施工管理不到位、验收把关不严、开通后对线路周边环境巡查保护不力等问题。</p><p><b>处理意见</b></p><p><b>施工、监理、设计单位共同承担经济损失</b></p><p>《通报》随后分别对上述施工单位、监理单位、设计单位、第三方检测单位、建设单位提出了处理意见。</p><p>《通报》指出，施工单位方面，各建设单位1年内（2018年9月13日及以前发布招标公告的所有基建大中型项目）停止接受中铁二十局参加铁路大中型建设项目施工投标、1年内（停标时间按照铁总建设函[2017]808号顺延，至2019年2月23日及以前发布招标公告的所有基建大中型项目）停止接受中铁二十三局参加铁路大中型建设项目施工投标；2017年下半年施工企业信用评价中，中铁二十局、中铁二十三局直接定为C级；中铁二十局、中铁二十三局承担相应质量问题直接经济损失的90%；中铁十七局、中铁二十二局在2017年下半年施工企业信用评价总分中扣2分。上述施工单位要按照相关规定对责任人进行处理，结果报建设单位。</p><p>监理单位方面，各建设单位1年内（停标时间按照铁总建设函[2017]691号顺延，至2018年11月15日及以前发布招标公告的所有基建大中型项目）停止接受甘肃铁科监理公司参加铁路大中型建设项目的监理投标，9个月内（2018年6月13日及以前发布招标公告的所有基建大中型项目）停止接受北京铁研监理公司参加铁路大中型建设项目的监理投标；2017年下半年铁路建设项目监理企业信用评价中，甘肃铁科监理公司、北京铁研监理公司评价结果直接定为C级；甘肃铁科监理公司、北京铁研监理公司承担相应质量问题直接经济损失的5%。上述监理单位要按照相关规定对责任人进行处理，结果报建设单位。</p><p>设计单位方面，停止中铁二院参加满足其资格条件的铁路总公司建设项目设计投标4次（含设计单位牵头的工程总承包投标）；2017年下半年勘察设计企业施工图评价结果直接定为C级；中铁二院承担相应质量问题直接经济损失的5%。中铁二院要按照相关规定对责任人进行处理，结果报建设单位。</p><p>第三方检测单位方面，将山西三江工程检测有限公司清除出总公司铁路建设市场。</p></div><div class="page js-page"><p>建设单位方面，沪昆客专贵州公司除以上检查发现的问题外，还存在中央“机动式”巡视指出的贵广高铁3个审价工作未按规定公开招标问题，以上问题全部纳入2017年度铁路公司建设管理考核，对沪昆客专贵州公司扣47分。</p><p>公开资料显示，沪昆高铁东起上海，西至昆明，途经上海、浙江、江西、湖南、贵州、云南等省市，线路全长2252公里，列车运行时速300公里，是我国东西向线路里程最长、速度等级最高、经过省份最多的高速铁路。2016年12月28日，沪昆高铁全线通车。</p><p><!--@@ASKBARID=EX7357084084955891029--></p>
+                    <div class="otitle_editor">
+                        <p class="otitle">
+                            (原标题：铁总追责！沪昆高铁贵州段个别隧道存在偷工减料等严重质量问题)
+                        </p>
+                         
+                        <p class="editor">
+                            (责任编辑：张宪超_NN9310)
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">
+                <div class="show_article js-show-article" style="display: block;">
+                    加载全文
+                    <i class="down_arrow iconfont"></i>
+                </div>
+                <!-- 有态度 顶部广告 -->
+                <a class="altitude altitude_bottombanner js-albot" href="https://3g.163.com/wap/special/attitude_2017/?from=wapdocframedown">
+                </a>
+                <div class="auto_recommend js-autoRecommend">
+                </div>
+                <div class="wakeup_client js-wakeupclient">
+                    <div class="more_client more-client">
+                        <span class="wakeup_bar">
+                            <span class="logo"></span>
+                            <span class="app_title">一键安装官方客户端</span>
+                        </span>
+                        <span class="wakeup_desc">重大事件及时推送 阅读更流畅</span>
+                    </div>
+                </div>
+                <!-- 通栏ad2 淘宝非标-->
+                <div class="a_adtemp js-columsADBlowContent"><section class="m_papa papa-item clearfix iframe_fk_koukou">
+    <div class="m_papa_iframe_wrap">
+         <iframe src="//3g.163.com/wap/special/jd_art_banner/" frameborder="0" allowtransparency="true" scrolling="no"></iframe>
+    </div>
+</section></div>
+                <topicname style="display: none;">0012社会新闻</topicname>
+                <first-img style="display: none;">http://dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png</first-img>
+                <template data-type=""></template>
+            </div>
+        </article>
+        <!-- 跟贴 -->
+        <section class="article_comment tie-D36SMTF40001875P">
+    <div class="comment_title">
+        <span>热门跟贴</span>
+        <a class="comment_more js-replylink" href="https://3g.163.com/touch/comment.html?docid=D36SMTF40001875P">
+            发贴
+            <i class="right_arrow iconfont"></i>
+        </a>
+    </div>
+    <div class="comment_list comment-list"><div class="post_221043435" data-id="221043435" count="2976">
+
+	<p class="clearfix">
+	<span class="floor_outermost stuff-left">少林支部书记释十八[网易浙江省手机网友]</span>
+
+	<span class="stuff-right">2976 顶</span>
+	</p>
+
+
+	<p>这个“个别”用的很好！</p>
+
+</div>
+<div class="post_221081637" data-id="221081637" count="1245">
+
+	<p class="clearfix">
+	<span class="floor_outermost stuff-left">[网易福建省手机网友]</span>
+
+	<span class="stuff-right">1245 顶</span>
+	</p>
+
+
+	<p>有时汉奸比敌人更可怕</p>
+
+</div>
+</div>
+    <div class="comment_bot">
+        <a class="comment_info js-replylink" href="https://3g.163.com/touch/comment.html?docid=D36SMTF40001875P">
+            <span class="js-replycount">3634</span>人跟贴，
+            <span>53297</span>人参与
+        </a>
+    </div>
+</section>
+        <!-- 相关推荐 -->
+        <div class="relative_doc relativedoc-D36SMTF40001875P" style="display: block;">
+    <h3>相关推荐</h3>
+    <div class="relative_list js-relativelist"><section class="m_article list-item list-article  clearfix" id="D2NDACCO002580SN">
+    <a target="_blank" href="https://3g.163.com/all/article/D2NDACCO002580SN.html#clickfrom=relativedoc">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/da802d0c7b524d1e879c770fefb5ca0e20171108105554.png?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>首条民资控股高铁陷烦恼:建设方式不符合铁总要求</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                    <span class="m_article_time">3天前</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_article list-item list-article  clearfix" id="D343CPV704108DGB">
+    <a target="_blank" href="https://3g.163.com/all/article/D343CPV704108DGB.html#clickfrom=relativedoc">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/43e358e32b8748ba9452543b3b6e6fac20171113091739.png?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>贵州 安六城际铁路最长隧道贯通 预计19年6月1日通车</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                    <span class="m_article_time">昨天</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_article list-item list-article  clearfix" id="D3537E4B04178DBC">
+    <a target="_blank" href="https://3g.163.com/all/article/D3537E4B04178DBC.html#clickfrom=relativedoc">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/ef038008bbee442495b9ff58a2a03cac20171113182832.png?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>横琴新区马骝洲交通隧道 新建工程实现全线贯通</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                    <span class="m_article_time">昨天</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_papa_m0 m_papa papa-item clearfix" id="ssp-yx-417064">
+    <a target="_blank" href="http://img.sfddj.com/action/all/170915-ddj-ad/index.html?from_bsource=qqzone&amp;utm_source=WY&amp;utm_medium=cpc&amp;utm_content=link102001&amp;utm_campaign=dzx">
+        <div class="m_papa_title">限2天！阳澄湖大闸蟹8只89元<span class="m_papa_promote">广告</span></div>
+        <div class="m_papa_img">
+            <img src="http://pg-ad-b1.nosdn.127.net/yixiao/12842/cd694c1facd61f05f90e342668da5951.jpg">
+        </div>
+    </a>
+</section><section class="m_article list-item list-article  clearfix" id="D2URI71U04098FC3">
+    <a target="_blank" href="https://3g.163.com/all/article/D2URI71U04098FC3.html#clickfrom=relativedoc">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/0b78bccf9d70420d9ce3285fed4e4e3720171111082018.png?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>杭州紫之隧道 获中国建筑界“奥斯卡”奖</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                    <span class="m_article_time">3天前</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+</div>
+</div>
+        <!-- 热门新闻开始 -->
+        <div class="hot_news hot-news-D36SMTF40001875P">
+                    <h3>热门新闻</h3>
+                    <div class="hot_list content-list">
+                    <section class="m_article list-item list-article  clearfix" id="D37BF5KR000187VE">
+    <a target="_blank" href="https://3g.163.com/all/article/D37BF5KR000187VE.html#child=all&amp;offset=5">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/7a5a42a6629b4d838242ef7cf35040d620171114153803.png?imageView&amp;thumbnail=220y165&amp;quality=45&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>36岁福建女商人欠款5.5亿:两千多家专卖店均停业</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                        <span class="m_article_channel">新闻</span>
+                    <span class="m_article_time">6小时前</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>3.4万
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_papa papa-item clearfix" id="cooperAD_qiu">
+    <a target="_blank" href="http://3g.163.com/wap/special/touch_jump/?jump=http%3A%2F%2Fccc.xiwuji.com%2Fsw%2F65495.html%3Fdswap&amp;pos=2&amp;articleID=qiu&amp;source=网易原创&amp;vpinfo=">
+        <div class="m_papa_img">
+            <img src="//cms-bucket.nosdn.127.net/e500a5dfa16340f9b9c324f90d3c8f2120171109215056.jpeg?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_papa_info">
+            <div class="m_papa_title">
+                乐山大佛闭眼事件 背后竟藏惊天骇闻
+            </div>
+            <div class="m_papa_desc clearfix">
+                <div class="m_papa_desc_l">
+                    <span class="m_papa_promote">广告</span>
+                    <span class="m_papa_time"></span>
+                </div>
+                <div class="m_article_desc_r"></div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_article list-item list-article  clearfix" id="D37NPE850001875P">
+    <a target="_blank" href="https://3g.163.com/all/article/D37NPE850001875P.html#child=all&amp;offset=6">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/ee51b71b448b44a5952a844a3fb2c96220171114190733.png?imageView&amp;thumbnail=220y165&amp;quality=45&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>南航飞机备降 21分钟里大学生慌乱写下25字遗书</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                        <span class="m_article_channel">新闻</span>
+                    <span class="m_article_time">2小时前</span>
+                </div>
+                    <div class="m_article_desc_r" style="display: none;">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>1520
+                        </div>
+                    </div><div class="newsapp_logo">应用查看</div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_papa_m0 m_papa papa-item clearfix" id="ssp-yx-423154">
+    <a target="_blank" href="http://www.teamdrm.com/?gzid=c1">
+        <div class="m_papa_title">雅戈尔加厚衬衫买一送三包邮<span class="m_papa_promote">广告</span></div>
+        <div class="m_papa_img">
+            <img src="http://pg-ad-b1.nosdn.127.net/yixiao/13955/d46bad8abaea316f9f54df247c589b9e.jpg">
+        </div>
+    </a>
+</section><section class="m_papa_m2 m_papa papa-item clearfix" id="cooperAD_laynjing">
+    <a target="_blank" href="http://3g.163.com/wap/special/touch_jump/?jump=http%3A%2F%2Fm.51yangsheng.com%2Fshehuibaitai%2F421676.html%3Fwyxw&amp;pos=5&amp;articleID=laynjing&amp;source=wuyi&amp;vpinfo=">
+        <div class="m_separate">
+            <div class="m_papa_content">
+                男子农田挖怪洞，爬出一物凶猛无比
+                <span class="m_papa_promote">广告</span>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_article list-item list-article  clearfix" id="D37HE0JU0001875P">
+    <a target="_blank" href="https://3g.163.com/all/article/D37HE0JU0001875P.html#child=all&amp;offset=7">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/21fe5d5424ef4f7e949556c60c4c0ab420171114171629.png?imageView&amp;thumbnail=220y165&amp;quality=45&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>华侨大学回应江歌案:陈世峰系该校毕业生 成绩中等</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                        <span class="m_article_channel">新闻</span>
+                    <span class="m_article_time">4小时前</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>1.1万
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_papa papa-item clearfix" id="cooperAD_yisheng">
+    <a target="_blank" href="http://3g.163.com/wap/special/touch_jump/?jump=http%3A%2F%2Fm.51yangsheng.com%2Fshehuibaitai%2F415084.html%3Fwyxw&amp;pos=7&amp;articleID=yisheng&amp;source=wuyi&amp;vpinfo=">
+        <div class="m_papa_img">
+            <img src="//cms-bucket.nosdn.127.net/36b808f781d146818eb39c2f68af16c220171101150001.jpeg?imageView&amp;thumbnail=220y165&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_papa_info">
+            <div class="m_papa_title">
+                为何日本女人最想嫁给相扑运动员
+            </div>
+            <div class="m_papa_desc clearfix">
+                <div class="m_papa_desc_l">
+                    <span class="m_papa_promote">广告</span>
+                    <span class="m_papa_time"></span>
+                </div>
+                <div class="m_article_desc_r"></div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_article list-item list-article  clearfix" id="D37S0IEF0001875P">
+    <a target="_blank" href="https://3g.163.com/all/article/D37S0IEF0001875P.html#child=all&amp;offset=8">
+        <div class="m_article_img">
+                <img src="//cms-bucket.nosdn.127.net/8e7ddcbba8b4492eb53483e95825978020171114202115.png?imageView&amp;thumbnail=220y165&amp;quality=45&amp;type=webp&amp;interlace=1&amp;enlarge=1">
+        </div>
+        <div class="m_article_info">
+            <div class="m_article_title">
+                <span>广东男子逛街一眼认出被拐儿子将其解救 3人获刑</span>
+            </div>
+            <div class="m_article_desc clearfix">
+                <div class="m_article_desc_l">
+                        <span class="m_article_channel">新闻</span>
+                    <span class="m_article_time">1小时前</span>
+                </div>
+                    <div class="m_article_desc_r">
+                        <div class="left_hands_desc">
+                            <span class="iconfont"></span>5138
+                        </div>
+                    </div>
+            </div>
+        </div>
+    </a>
+</section>
+<section class="m_papa_m0 m_papa papa-item clearfix" id="ssp-yx-417064">
+    <a target="_blank" href="http://img.sfddj.com/action/all/170915-ddj-ad/index.html?from_bsource=qqzone&amp;utm_source=WY&amp;utm_medium=cpc&amp;utm_content=link102001&amp;utm_campaign=dzx">
+        <div class="m_papa_title">限2天！阳澄湖大闸蟹8只89元<span class="m_papa_promote">广告</span></div>
+        <div class="m_papa_img">
+            <img src="http://pg-ad-b1.nosdn.127.net/yixiao/12842/cd694c1facd61f05f90e342668da5951.jpg">
+        </div>
+    </a>
+</section></div>
+                <div class="list-more" style="display: none;">
+                            <div class="loading-wrap">
+                                <div class="loading">
+                                    <div class="loading-icon iconfont"></div>
+                                </div>
+                                <div class="loadtext">正在加载</div>
+                            </div>
+                        </div></div>
+    </main>
+    <footer><div class="foot_nav">
+	<div class="u_topmenu clearfix">
+		<div class="slider_wrap line" id="slider_wrap">
+			<div class="u_c_items"><div class="item_cell current" scroll-left="0"><a href="http://3g.163.com/touch/all">推荐</a></div><div class="item_cell" scroll-left="0"><a href="http://3g.163.com/touch/news">新闻</a></div><div class="item_cell" scroll-left="0"><a href="http://3g.163.com/touch/ent">娱乐</a></div><div class="item_cell" scroll-left="274"><a href="http://3g.163.com/touch/sports">体育</a></div><div class="item_cell" scroll-left="548"><a href="http://3g.163.com/touch/money">财经</a></div><div class="item_cell" scroll-left="822"><a href="http://3g.163.com/touch/war">军事</a></div><div class="item_cell" scroll-left="1097"><a href="http://3g.163.com/touch/photo">图片</a></div><div class="item_cell" scroll-left="1371"><a href="http://3g.163.com/touch/joke">段子</a></div><div class="item_cell" scroll-left="1645"><a href="http://3g.163.com/touch/lady">时尚</a></div><div class="item_cell" scroll-left="1920"><a href="http://3g.163.com/touch/dy">订阅</a></div><div class="item_cell" scroll-left="2194"><a href="http://3g.163.com/touch/mobile">手机</a></div><div class="item_cell" scroll-left="2468"><a href="http://3g.163.com/touch/tech">科技</a></div><div class="item_cell" scroll-left="2742"><a href="http://3g.163.com/touch/game">游戏</a></div><div class="item_cell" scroll-left="3017"><a href="http://3g.163.com/touch/digi">数码</a></div><div class="item_cell" scroll-left="3291"><a href="http://3g.163.com/touch/edu">教育</a></div><div class="item_cell" scroll-left="3565"><a href="http://3g.163.com/touch/jiankang">健康</a></div><div class="item_cell" scroll-left="3840"><a href="http://3g.163.com/touch/exclusive">独家</a></div><div class="item_cell" scroll-left="4114"><a href="http://3g.163.com/touch/auto">汽车</a></div><div class="item_cell" scroll-left="4388"><a href="http://3g.163.com/touch/travel">旅游</a></div><div class="item_cell" scroll-left="4662"><a href="http://3g.163.com/touch/baby">亲子</a></div><div class="item_cell" scroll-left="4937"><a href="http://3g.163.com/touch/house">房产</a></div><div class="item_cell" scroll-left="5211"><a href="http://3g.163.com/touch/home">家居</a></div><div class="item_cell" scroll-left="5485"><a href="http://yuedu.3g.163.com/">小说</a></div><div class="item_cell" scroll-left="5485"><a href="http://manhua.3g.163.com/">漫画</a></div><div class="item_cell" scroll-left="5485"><a href="http://3g.163.com/touch/navigation/">更多</a></div></div>
+		</div>
+		<div class="u_c_more">
+			<span class="more_channel up iconfont"></span>
+		</div>
+	</div>
+</div>
+        <div class="copyright">©1997-2017网易公司版权所有</div>
+    </footer>
+    <div class="sub_box sub-box"><div class="back_to_top">
+    <i class="icon_gotop iconfont item"></i>
+</div>
+<div class="go_index">
+    <i class="icon_index iconfont item"></i>
+</div>
+</div>
+    <script type="application/ld+json">
+        {
+          "@context": "http://schema.org",
+          "@type": "NewsArticle",
+          "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https://3g.163.com/all/article/D36SMTF40001875P.html"
+          },
+          "headline": "铁总追责！沪昆高铁个别隧道存在偷工减料等问题",
+          "image": {
+            "@type": "ImageObject",
+            "url": "http://dingyue.nosdn.127.net/h7M5iplMjAPhB9Iouj37IRutfF4Vi99MU387nVA0FpNh51510629122217transferflag.png?imageView&thumbnail=720y540&quality=85&type=jpg&interlace=1&enlarge=1",
+            "width": 720,
+            "height": 540
+          },
+          "datePublished": "2017-11-14T11:14:22+08:00",
+          "dateModified": "2017-11-14T11:14:22+08:00",
+          "author": {
+            "@type": "Organization",
+            "name": "澎湃新闻"
+          },
+           "publisher": {
+            "@type": "Organization",
+            "name": "手机网易网",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://cms-bucket.nosdn.127.net/6e3e71b810474d699e0cf512101220d020170830175354.png",
+              "width": 260,
+              "height": 60
+            }
+          },
+          "description": "11月13日晚，中国铁路总公司内部人士向澎湃新闻证实了网友发布的一份通报。该《中国铁路总公司关于沪昆高铁贵州段质量问题处理情况的通报（铁总建设函[2017]839号》（以下简称《通报》）称，通车不到一年的沪昆高铁贵州段个别隧道存在偷工减料与施工质量问题。"
+        }
+        </script>
+    <script src="https://static.ws.126.net/f2e/wap/touch_article_2016/ssr_trunk/dist/js/wapCommonLib.MnCz4laTUblN.1.js"></script>
+    <script src="https://static.ws.126.net/f2e/wap/touch_article_2016/ssr_trunk/dist/js/wapCommon.QxZL6AY2ieCX.26.js"></script>
+    <script src="https://img3.cache.netease.com/f2e/wap/touch_article_2016/ssr_trunk/dist/scripts/manifest.e160e8a.js"></script><script src="https://img3.cache.netease.com/f2e/wap/touch_article_2016/ssr_trunk/dist/scripts/vendor.c933214.js"></script><script src="https://img3.cache.netease.com/f2e/wap/touch_article_2016/ssr_trunk/dist/scripts/run.aaad31a.js"></script>
+    <style>
+    .toast-wrap-d7fef5 { display: none; position: fixed;z-index:99999998;left: 0;top: 0; width: 100%; height: 100%; }
+    .mask-d7fef5 { height: 100%; opacity: 0; -webkit-transition: opacity 0.2s ease-in-out; transition: opacity 0.2s ease-in-out; background: rgba(0,0,0,0.6)}
+    .toast-wrap-d7fef5.active .mask-d7fef5 { opacity: 1;}
+    .toast-d7fef5 {
+      position:absolute;z-index:99999999;left:0;bottom: 0;width:100%;
+      -webkit-transform: translateY(100%); -webkit-transition:-webkit-transform 0.2s ease-in-out;
+      transform: translateY(100%); transition: transform 0.2s ease-in-out;
+    }
+    .toast-wrap-d7fef5.active .toast-d7fef5 { -webkit-transform: translateY(0); transform: translateY(0); }
+    
+    .btn-d7fef5 { position: absolute; right:0;left:0;bottom:14.52%; height: 23.93%; }
+    </style>
+    <div class="toast-wrap-d7fef5">
+      <div class="mask-d7fef5"></div>
+      <div class="toast-d7fef5">
+        <div class="btn-d7fef5"></div>
+        <img src="//static.ws.126.net/utf8/3g/touch/images/toast-download.png" style="width: 100%; height: 100%; vertical-align: bottom;">
+      </div>
+    </div>
+  
+    <!-- START NetEase Devilfish 2006 -->
+<script src="//analytics.163.com/ntes.js" type="text/javascript"></script>
+<script type="text/javascript">
+_ntes_nacc = "wap";
+neteaseTracker();
+neteaseClickStat();
+</script>
+<!-- END NetEase Devilfish 2006 -->
+<!-- START Baidu autopush -->
+<script>
+(function(){
+    var bp = document.createElement('script');
+    var curProtocol = window.location.protocol.split(':')[0];
+    if (curProtocol === 'https') {
+        bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';        
+    }
+    else {
+        bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+    }
+    var s = document.getElementsByTagName("script")[0];
+    s.parentNode.insertBefore(bp, s);
+})();
+</script>
+<!-- END Baidu autopush -->
+    <script type="text/javascript">
+        if (NEWAP.trackerQueue) {
+            NEWAP.tools.publicMethod.doTrackerQueue();
+        };
+    </script>
+    <!-- 极光点击统计 important -->
+    <script>!function(n){function t(){}function e(){var n=Math.round((+new Date-$)/1e3);return n<0?0:n}function i(n){var t=n.className,e=l(n),i={script:1,style:1,link:1,img:1,hr:1,br:1},a=!0;return i[e]?a=!1:/blank\d/.test(t)&&(a=!1),a}function a(t){A||(m&&window._ntes_sendInfo?(n.each(j,function(n,t){u(t)}),A=!0):j.push(t)),A&&u(t)}function r(n){return n<10?n.toString():n>62?"z":String.fromCharCode(n+(n<36?55:61))}function o(n,t){if(!t)return n;var e=n.length-1,i=n.charCodeAt(e);return i<58?i-=48:i<91?i-=55:i<123&&(i-=61),n.substr(0,e)+r(i+t)}function c(n,t,e){t&&t.setAttribute((e?"_":"")+"jcid",n)}function s(n){if(n){var t=this.getAttribute("href")||"";y++;var i="/ntes_p?"+w+"&_nct="+e()+"&_nah="+escape(t)+"&_nat={id}_"+n;a(i)}}function u(t){if("ywa"==m.substr(0,3)){var e=location.pathname.substr(7).replace(/\/.*/,""),i={money:2,mobile:3,digi:4,ent:5,game:6,tech:7,edu:9,nba:10,news:11,auto:12,photo:13,dy:14,lady:15,war:16,jiankang:17,exclusive:18,travel:21,baby:22,sports:24,idol:25};i[e]&&(m=m.substr(0,3)+(i[e]>9?"":"0")+i[e])}else"ywma1"==m&&n(".article_bot")[0]&&(m="ywma2");_ntes_sendInfo("jc",_ntes_src_addr+t.replace("{id}",m))}function f(n,t,e){for(var i={a:1,area:1},a=n,r=null;n.tagName&&n!=C;){if(i[l(n)]){r=n;break}n=n.parentNode}if(r)for(;n&&n!=t&&!(e=n.getAttribute("jcid"));)n=n.parentNode;for(;!e&&!(e=a.getAttribute("_jcid"));)if(a=a.parentNode,!a||!a.tagName||a==C)return;e&&s.call(r||n,e)}function l(n){return n.tagName.toLowerCase()}function _(n,t,e){"iframe"!=l(n)&&t(n,e)}function d(n){return(n.innerHTML.match(/jcid=".*?"/g)||[]).join("")}function h(n,t){var e,i;v(n).bind("mouseover touchstart",function(){var a=d(n),r=n.innerHTML.replace(/<.*?>/g,"").length;!n.children.length||a==e&&r==i||(t(),e=d(n),i=r)})}function p(n,t){var e=n[0],i=n.level;return e&&i&&b(e,i,t),e}function b(t,e,i){if(n.util.isArray(t))n.each(t,function(n,t){b(t,e,i)});else if("object"==typeof t)if(t.i)t.k=o(t.i.substr(0,e+1),i)+t.i.substr(e+1);else for(var a in t)b(t[a],e,i)}var v=n;n.zepto&&(v=function(){var t,e=[].slice.call(arguments),i=e[0],a=e[1]||document.body,r="string"==typeof i&&">"==i.substr(0,1);r&&(t=a.id,a.id="__cmon__",e[0]="#__cmon__"+i);var o=n.apply(this,e);return r&&(t?a.id=t:a.removeAttribute("id")),o});var m,g,w="_nacc=siteclick&_npurl="+escape(document.URL),y=0,A=!1,j=[],C=document.body,$=window.performance&&window.performance.timing?window.performance.timing.connectStart:+new Date,k=[function(t,e,i){t+=r(i.start||1),i.bind?n(e).bind("click",function(n){s.call(e,t)}):c(t,e,i.all)},function(n,t,e){var i,a=e.start||1,o=e.query||"a";/(.*?)\|(.*)/.test(o)?(i=RegExp.$1,o=RegExp.$2,v(i,t).each(function(t,i){a=e.start||1,v(o,i).each(function(t,i){c(n+r(a++),i,e.all)})})):v(o,t).each(function(t,i){c(n+r(a++),i,e.all)})},function(t,e,a){for(var o=1,s=a.level||1,u=[e],f=0;f<s;f++){var _=[];n.each(u,function(t,e){var a=0;"a"==l(e)||/ntes-nav-select/.test(e.className)||n.each(e.children,function(n,t){i(t)&&(_.push(t),a++)}),a||_.push(e)}),u=_}n.each(u,function(n,e){c(t+r(o++),e,a.all)})},function(n,t,e){var i=v(">form",t);i[0]&&i.bind("submit",function(){s.call(this,n+"1")})},function(n,t,e){var i=v(e.h,t),a=v(e.b,t);if(i&&a){var o=e.step||10,s=2;c(n+"1",t),i.each(function(t,e){c(n+r(s+t*o),e)}),a.each(function(t,e){c(n+r(s+t*o+1),e)})}},function(t,e,a){var o=a.union||"",s={};if(/^[\s\d,]+$/.test(o)){var u=0;n.each(o.split(/\s*,\s*/),function(n,t){if(t=parseInt(t))for(var e=0;e<t;e++)s[u++]=n})}var f=2;c(t+"1",e);var l=parseInt(a.step)||10,_=v(a.h,e);if(_&&d){n.each(_,function(n,e){c(t+r(n*l+f),e)});var d=v(a.b,e);n.each(d,function(e,a){var o=e*l+f+1,u=a.children;if(0==u.length)u=[a];else for(;1==u.length;)u=u[0].children;var _=0;n.each(u,function(n,e){i(e)&&("undefined"!=typeof s[n]&&(_=s[n]),c(t+r(o+_),e),_++)})})}}];t.prototype={init:function(t,i){t&&5==t.length&&(m=t),g||(g=location.href.indexOf("_aCM")>-1||Math.random()<(i||.1),g&&(n("body").bind("click",function(n){f(n.target,C)}),n(function(){function t(){r&&(a("/ntes_u?"+r+"&_nct="+e()+"&_mcn="+y+o),r=0)}var i=n(window),r=w+"&_nch={id}",o="",c="&_msl="+e();i.bind("load",function(){o="&_msl="+e()}),a("/ntes_u?"+r+c),i.bind("beforeunload",t);var s=navigator.userAgent.toLowerCase();!/compatible/.test(s)&&/firefox/.test(s)&&i.bind("unload",t)}),this.retain&&this.area(C,this.retain)))},area:function(n,t,e){for(var i in t){var a=!1,r=t[i];r.level=e||0,/(.*?)=$/.test(i)&&(i=RegExp.$1,a=!0),this.procA(n,i,r,a)}},procA:function(n,t,e,i){var a=this,r=e.level+1;if(i)return void h(n,function(){a.procA(n,t,e)});var o=function(n,t){a.area(n,t,r)},c=0,s=0,u=0;/(.*?)!$/.test(t)&&(t=RegExp.$1,s=1),/(.*?)\*$/.test(t)?(t=RegExp.$1,c=1):/(.*?)\+$/.test(t)&&(t=RegExp.$1,u=1);var f,l=t?v(t,n):[n],d=0,b=l.length;for(f=0;f<b;f++){var m=l[f];if(!s||!m.id){var g=c?e[0]:e[d];if(u&&1==e.length&&(g=p(e,d)),g&&m)if(g.i)for(var w=g.s||1,y=0;y<w;y++)g.j=y,this.zone(l[f+y],g);else _(m,o,g);d++}}},zone:function(n,t){var e=o(t.k||t.i,t.j),i=k[t.f||0],a=t.p||{};n&&i&&(a.dyn?h(n,function(){i(e,n,a)}):_(n,function(n){i(e,n,a)}))},batch:function(n){g?this.area(C,n):this.retain=n}},window._aCM=new t}(window.jQuery||window.Zepto),function(){_aCM.init(window._aCMID||"ywa01"),setTimeout(function(){_aCM.batch({".s_main_nav":[{"":[{"":[{i:"111"}]}]}],".s_sb_news":[{"":[{"":[{i:"211"}]}]}],".s_sb_ent":[{"":[{"":[{i:"311"}]}]}],".s_sb_sports":[{"":[{"":[{i:"411"}]}]}],".s_sb_money":[{"":[{"":[{i:"511"}]}]}],".s_sb_photo":[{"":[{"":[{i:"611"}]}]}],".s_sb_video":[{"":[{"":[{i:"711"}]}]}],".s_sb_lady":[{"":[{"":[{i:"811"}]}]}],".s_sb_mobile":[{"":[{"":[{i:"911"}]}]}],".s_sb_tech":[{"":[{"":[{i:"A11"}]}]}],".s_sb_digi":[{"":[{"":[{i:"B11"}]}]}],".s_sb_edu":[{"":[{"":[{i:"C11"}]}]}],".s_sb_exclusive":[{"":[{"":[{i:"D11"}]}]}],".s_sb_caipiao":[{"":[{"":[{i:"E11"}]}]}],"#login_panel":[{"":[{"":[{i:"F11",f:1}]}]}],".u_topbar":[{">.u_llogo":[{"":[{i:"G11",p:{dyn:1,all:1}}]}],">.u_rlogo":[{"":[{i:"G21",f:1}]}]}],".icon_setting":[{"":[{"":[{i:"H11"}]}]}],".u_topad":[{"":[{"":[{i:"I11"}]}]}],".bar_wrap":[{"":[{"":[{i:"J11",f:2,p:{level:4,dyn:1,all:1}}]}]}],".contents-tablist":[{"":[{"":[{i:"K11",f:1,p:{query:".contents-tablist-wrap|.headslide,.swipe-content,.content-list section,.u_p_items>.item_cell,.rank-list a,.match_scroll_wrap a",dyn:1}}]}]}],".float":[{">a":[{"":[{i:"L11"}]}]}]})},1e3)}();</script>
+    <!-- 百度点击统计 -->
+    <script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?b2d0b085a122275dd543c6d39d92bc62";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
+<div class="doc-footer-wrapper">
+                    <ul class="scroll-image-wrapper">
+                        <li class=""><img src="//dingyue.nosdn.127.net/6yj9N9KWoZU0umfs7b5qFvnjUrgvTN10hubQCzBAuB5Ni1510637904600.jpg?imageView&amp;thumbnail=82y82&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1"></li><li class=""><img src="//crawl.nosdn.127.net/52c5cb9ce5901cea7a2c3a80f36ed5ba/1facdd7bdee0a61d3c4f5b528e24f692.jpg?imageView&amp;thumbnail=82y82&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1"></li><li class="current"><img src="//dingyue.nosdn.127.net/Ws=c5xgR=wuW8T6mV96olH8LWu8wJbRBmmySSkWkE4sWB1510616457983.jpeg?imageView&amp;thumbnail=82y82&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1"></li><li class=""><img src="//dingyue.nosdn.127.net/B7RjBqZnAbtRmDJ8cgS59hgtn3=IFkF4h38bfZ9G59ATm1510636111282compressflag.png?imageView&amp;thumbnail=82y82&amp;quality=85&amp;type=webp&amp;interlace=1&amp;enlarge=1"></li>
+                    </ul>
+                    <ul class="scroll-title-wrapper">
+                        <li class="" data-dw-source="news_wap_docfooter" style="left: 0px; display: none;">
+                                    <a href="https://3g.163.com/news/article/D374UN2P0525ERCN.html#clickfrom=newsappDocFooter" class="title">
+                                        官宣！火箭18+9超控复出！德帅钦点两战必须拿下！
+                                    </a>
+                                </li><li class="newsapp" data-dw-source="news_wap_docfooter" style="left: -517px; display: block;">
+                                    <a href="https://3g.163.com/news/article/D364VS2I0526978H.html#clickfrom=newsappDocFooter" class="title">
+                                        男子《魔兽》账号被封5年之久 近日意外解封感动哭了
+                                    </a>
+                                </li><li class="current" data-dw-source="news_wap_docfooter" style="left: 0px; display: block;">
+                                    <a href="https://3g.163.com/news/article/D36GG8BM05158JQT.html#clickfrom=newsappDocFooter" class="title">
+                                        剧情反转太快，复夺卡迈勒IS陷叙军反包围被干掉三名指挥官
+                                    </a>
+                                </li><li class="newsapp" data-dw-source="news_wap_docfooter" style="left: 517px; display: block;">
+                                    <a href="https://3g.163.com/news/article/D373JELQ0529CN4N.html#clickfrom=newsappDocFooter" class="title">
+                                        骑士从落后23分到逆转，很多人都忽略了一点：有个人被雪藏
+                                    </a>
+                                </li>
+                    </ul>
+                    <ul class="scroll-panel clearfix">
+                        <li class=""></li><li class=""></li><li class="current"></li><li class=""></li>
+                    </ul>
+                    <div class="close-btn"></div>
+                    <div class="open-btn"><span>打开</span></div>
+                </div></body></html>

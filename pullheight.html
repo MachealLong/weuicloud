@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>满屏</title>
+</head>
+<style>
+	.container{
+		width:100px;
+		height:200px;		
+		background: red;
+		display: inline-block;
+	}
+
+	.container:nth-child(2){
+		position:relative;
+		top:30px;
+		left:30px;
+	}
+
+/*position:absolute;
+left:0;
+top:0;
+right:0;
+height:1px;
+border-top:1rpx solid #d9d9d9;
+color:#d9d9d9;
+left:15px;*/
+	.container:before{
+		content:"xxxx";
+        position:absolute; 
+        height:1px;  
+left:0;
+top:0;
+right:0;
+        right: 0;
+        border: 1px solid green;
+        font-size:14px;
+
+	}
+
+.container:after{
+		content:"after";
+
+
+	}
+
+	body{
+		height:100%;
+		display: block;
+
+	}
+
+	body{ margin:0; height:100%}
+    html{ height:100%}
+    div{ background: #ccc;height:100%}
+</style>
+<body>
+
+	<div class="container">
+		fdsffdsfs
+	</div>
+
+	<div class="container">
+		fdsf
+	</div>
+
+	<div class="container">
+		fdsf
+	</div>
+
+</body>
+</html>

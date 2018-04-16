@@ -132,5 +132,23 @@ function uploadFile(e) {
 </head>
 <body>
 <input id="upload_file" type="file" accept="video/*"  onchange="uploadFile(this)"/>
+  <div id="loading" class="uploadingimgbox" style="display: none;">
+        <div class="uploadingimgtip">
+            <h2><span>正在上传视频</span></h2>
+            <div class="uploadingcontent">
+                <img src="https://g.517cdn.com/www517cn/2016v1/images/loading_img.gif" alt="">
+            </div>
+        </div>
+    </div>
+    <!--弹出提示，upload done-->
+    <div id="success" class="uploadingimgbox" style="display: none;">
+        <div class="uploadingimgtip">
+            <h2><span>提示</span></h2>
+            <div class="uploadingcontent"><i class="fontfaceicon">&#xe64a;</i>视频上传成功</div>
+            <div class="uploadingbtn">
+                <a href="javascript:$('#success').hide();">确定</a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

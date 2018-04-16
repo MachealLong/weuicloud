@@ -12,7 +12,7 @@ function errmsg(content, title) {
                 $("#upload_file").val("");
             }
 function uploadFile(e) {
-                alert("进来了");
+                $("#didiv").html(进来了);
                 var files = e.files;
                 errmsg("文件个数:" + files.length + "<br/>文件名:" + files[0].name + "<br/>文件类型:" + files[0].type + "<br/>文件大小:" + files[0].size);
                 return;
@@ -148,6 +148,6 @@ function uploadFile(e) {
             </div>
         </div>
     </div>
-                                                          <div>改动一</div>
+                                                          <div id="didiv">改动一</div>
 </body>
 </html>
